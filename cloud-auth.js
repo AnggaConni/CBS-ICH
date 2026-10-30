@@ -2,8 +2,8 @@
 // Loaded before the original app script; the original DOMContentLoaded callback
 // will call the overridden app.init() after this file installs its handlers.
 document.addEventListener('DOMContentLoaded', () => {
-  if (!window.app) return;
-  Object.assign(window.app, {
+  if (typeof app === 'undefined') return;
+  Object.assign(app, {
     sb: null, session: null, community: null, authBusy: false,
 
     async init() {
