@@ -48,6 +48,26 @@
   else list.innerHTML=rows.map(row=>'<article class="report"><div class="flex items-start justify-between gap-3"><div class="min-w-0"><h3 class="font-bold">'+escapeHtml(row.ich_name)+'</h3><p class="muted text-xs mt-1">'+escapeHtml(row.community_name||'Community')+' · '+escapeHtml([row.regency,row.province].filter(Boolean).join(', '))+'</p><p class="text-xs text-gray-500 mt-2">'+escapeHtml(row.category||'Intangible cultural heritage')+'</p></div><span class="tag shrink-0">Published</span></div></article>').join('');
   const sorted=Object.entries(byProvince).sort((a,b)=>b[1]-a[1]);
   provinceList.innerHTML=sorted.length?sorted.map(([name,count])=>'<div class="flex items-center justify-between gap-3 mb-3"><span class="text-sm">'+escapeHtml(name)+'</span><span class="text-xs font-bold text-teal-700">'+count+'</span></div>').join(''):'<p class="muted text-sm">No geographic data yet.</p>';
+
+  const {data: baseline,error: baselineError}=await client.from('regional_ich_references').select('source_key,element_name,country_names,inscription_year,unesco_status,unesco_list,source_name,source_url,verification_status').order('inscription_year',{ascending:false}).order('element_name');
+  if(baselineError)throw baselineError;
+  const baselineRows=baseline||[];
+  const baselineCount=document.getElementById('baseline-count'),baselineList=document.getElementById('baseline-list');
+  const countrySelect=document.getElementById('baseline-country'),searchInput=document.getElementById('baseline-search');
+  baselineCount.textContent=baselineRows.length+' reference elements';
+  const aseanCountries=['Brunei Darussalam','Cambodia','Indonesia','Lao People\'s Democratic Republic','Malaysia','Myanmar','Philippines','Singapore','Thailand','Timor-Leste','Viet Nam'];
+  const countries=aseanCountries;
+  countries.forEach(country=>{const option=document.createElement('option');option.value=country;option.textContent=country;countrySelect.appendChild(option);});
+  function renderBaseline(){
+    const term=(searchInput.value||'').trim().toLowerCase(),country=countrySelect.value;
+    const filtered=baselineRows.filter(row=>(!country||(row.country_names||[]).includes(country))&&(!term||(row.element_name+' '+(row.country_names||[]).join(' ')).toLowerCase().includes(term)));
+    baselineList.innerHTML=filtered.length?filtered.map(row=>{
+      const status=row.unesco_status==='RL'?'Representative List':row.unesco_status==='USL'?'Urgent Safeguarding':row.unesco_status==='GSP'?'Good Safeguarding Practice':'Capacity-building Register';
+      return '<article class="rounded-xl border border-gray-100 bg-gray-50 p-4"><div class="flex items-start justify-between gap-2"><span class="tag">'+escapeHtml(status)+'</span><span class="text-[11px] font-bold text-gray-500">'+(row.inscription_year||'—')+'</span></div><h3 class="font-bold text-sm leading-5 mt-3">'+escapeHtml(row.element_name)+'</h3><p class="muted text-xs leading-5 mt-2">'+escapeHtml((row.country_names||[]).join(' · '))+'</p><div class="flex items-center justify-between gap-2 mt-3"><span class="text-[10px] text-amber-700 font-bold uppercase tracking-wide">Desk research · Unverified</span><a class="text-xs font-bold text-teal-700 underline" href="'+escapeHtml(row.source_url)+'" target="_blank" rel="noopener">Source ↗</a></div></article>';
+    }).join(''):'<p class="muted text-sm py-6">No matching reference elements.</p>';
+    baselineCount.textContent=filtered.length+' of '+baselineRows.length+' elements';
+  }
+  searchInput.addEventListener('input',renderBaseline);countrySelect.addEventListener('change',renderBaseline);renderBaseline();
   const map=L.map('asean-map',{scrollWheelZoom:false}).setView([7.5,115],4);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors'}).addTo(map);
   const centers={
@@ -73,25 +93,6 @@
   });
   document.getElementById('map-summary').textContent=Object.keys(counts).length+' countries · '+communityPoints+' geolocated community reports';
   setTimeout(()=>map.invalidateSize(),150);
-  const {data: baseline,error: baselineError}=await client.from('regional_ich_references').select('source_key,element_name,country_names,inscription_year,unesco_status,unesco_list,source_name,source_url,verification_status').order('inscription_year',{ascending:false}).order('element_name');
-  if(baselineError)throw baselineError;
-  const baselineRows=baseline||[];
-  const baselineCount=document.getElementById('baseline-count'),baselineList=document.getElementById('baseline-list');
-  const countrySelect=document.getElementById('baseline-country'),searchInput=document.getElementById('baseline-search');
-  baselineCount.textContent=baselineRows.length+' reference elements';
-  const aseanCountries=['Brunei Darussalam','Cambodia','Indonesia','Lao People\'s Democratic Republic','Malaysia','Myanmar','Philippines','Singapore','Thailand','Timor-Leste','Viet Nam'];
-  const countries=aseanCountries;
-  countries.forEach(country=>{const option=document.createElement('option');option.value=country;option.textContent=country;countrySelect.appendChild(option);});
-  function renderBaseline(){
-    const term=(searchInput.value||'').trim().toLowerCase(),country=countrySelect.value;
-    const filtered=baselineRows.filter(row=>(!country||(row.country_names||[]).includes(country))&&(!term||(row.element_name+' '+(row.country_names||[]).join(' ')).toLowerCase().includes(term)));
-    baselineList.innerHTML=filtered.length?filtered.map(row=>{
-      const status=row.unesco_status==='RL'?'Representative List':row.unesco_status==='USL'?'Urgent Safeguarding':row.unesco_status==='GSP'?'Good Safeguarding Practice':'Capacity-building Register';
-      return '<article class="rounded-xl border border-gray-100 bg-gray-50 p-4"><div class="flex items-start justify-between gap-2"><span class="tag">'+escapeHtml(status)+'</span><span class="text-[11px] font-bold text-gray-500">'+(row.inscription_year||'—')+'</span></div><h3 class="font-bold text-sm leading-5 mt-3">'+escapeHtml(row.element_name)+'</h3><p class="muted text-xs leading-5 mt-2">'+escapeHtml((row.country_names||[]).join(' · '))+'</p><div class="flex items-center justify-between gap-2 mt-3"><span class="text-[10px] text-amber-700 font-bold uppercase tracking-wide">Desk research · Unverified</span><a class="text-xs font-bold text-teal-700 underline" href="'+escapeHtml(row.source_url)+'" target="_blank" rel="noopener">Source ↗</a></div></article>';
-    }).join(''):'<p class="muted text-sm py-6">No matching reference elements.</p>';
-    baselineCount.textContent=filtered.length+' of '+baselineRows.length+' elements';
-  }
-  searchInput.addEventListener('input',renderBaseline);countrySelect.addEventListener('change',renderBaseline);renderBaseline();
  }catch(error){list.innerHTML='<p class="text-sm text-rose-600">Could not load public reports: '+escapeHtml(error.message)+'</p>';provinceList.innerHTML='<p class="muted text-sm">Unavailable.</p>';}
  function escapeHtml(value){return String(value??'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));}
 })();
