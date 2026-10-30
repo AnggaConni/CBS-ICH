@@ -131,9 +131,43 @@ table.dt th{background:#f9fafb;font-weight:700;width:38%}
 }
 .print-only{display:none}
 </style>
-</head>
+<style>
+#auth-overlay{position:fixed;inset:0;z-index:9999;background:rgba(15,35,32,.72);backdrop-filter:blur(7px);display:none;align-items:center;justify-content:center;padding:18px}
+#auth-overlay.show{display:flex}.auth-card{width:100%;max-width:470px;background:#fff;border-radius:22px;padding:28px;box-shadow:0 30px 90px #0003}
+.auth-btn{width:100%;display:flex;align-items:center;justify-content:center;gap:12px;border:1px solid #d8e0dc;border-radius:12px;padding:14px;background:#fff;font-weight:700;color:#24332d;cursor:pointer}
+.auth-btn:hover{background:#f7faf8}.auth-field{width:100%;border:1px solid #d7dfda;border-radius:10px;padding:12px;font:inherit;margin-top:5px}
+#auth-status{display:flex;align-items:center;justify-content:flex-end;gap:12px;background:#fff;border-bottom:1px solid #e5e7eb;padding:9px 18px;font-size:12px;color:#52615a}
+#auth-status button{border:1px solid #d7dfda;border-radius:8px;padding:6px 10px;font-weight:700}
+@media(max-width:640px){#auth-status{justify-content:space-between}}
+</style></head>
 <body>
 
+<div id="auth-overlay" role="dialog" aria-modal="true" aria-labelledby="auth-title">
+ <div class="auth-card">
+  <div class="flex items-center gap-3 mb-5"><div class="w-11 h-11 rounded-xl bg-teal-700 text-white grid place-items-center text-xl">✳</div><div><div class="font-extrabold text-gray-900">Community Heritage Recorder</div><div class="text-[10px] text-gray-500 tracking-widest uppercase">Indonesia ICH repository</div></div></div>
+  <section id="auth-signin">
+   <p class="text-[11px] font-extrabold tracking-widest uppercase text-teal-700">Community access</p>
+   <h2 id="auth-title" class="text-2xl font-extrabold mt-2">Sign in to contribute</h2>
+   <p class="text-sm text-gray-600 leading-relaxed mt-2 mb-6">Use your Google account to access your community's two report slots. New communities can register after signing in.</p>
+   <button class="auth-btn" onclick="app.googleSignIn()"><strong style="font-size:18px;color:#4285f4">G</strong> Continue with Google</button>
+   <p id="auth-error" class="text-xs text-rose-600 mt-4 hidden"></p>
+   <p class="text-[11px] text-gray-400 leading-relaxed mt-5">Signing in does not make a report public. Public publication requires separate community verification and approval.</p>
+  </section>
+  <section id="auth-community" class="hidden">
+   <p class="text-[11px] font-extrabold tracking-widest uppercase text-teal-700">First-time setup</p>
+   <h2 class="text-2xl font-extrabold mt-2">Register your community</h2>
+   <p class="text-sm text-gray-600 leading-relaxed mt-2 mb-4">This creates your community workspace and assigns you as its owner. Verification starts as pending.</p>
+   <form onsubmit="app.registerCommunity(event)" class="space-y-3">
+    <label class="block text-xs font-bold text-gray-700">Community / organisation name<input id="auth-community-name" class="auth-field" required minlength="2" maxlength="180" placeholder="e.g. Sanggar Seni ..."></label>
+    <label class="block text-xs font-bold text-gray-700">Province<input id="auth-province" class="auth-field" placeholder="e.g. West Java"></label>
+    <label class="block text-xs font-bold text-gray-700">Regency / City<input id="auth-regency" class="auth-field" placeholder="e.g. Bandung Regency"></label>
+    <button id="auth-register-btn" class="w-full rounded-xl bg-teal-700 text-white p-3.5 font-bold" type="submit">Create community workspace</button>
+   </form>
+   <p id="auth-register-error" class="text-xs text-rose-600 mt-3 hidden"></p>
+   <button onclick="app.signOut()" class="text-xs text-gray-500 underline mt-4">Sign out</button>
+  </section>
+ </div>
+</div>
 <div class="shell">
 
   <!-- ============ SIDEBAR (desktop) ============ -->
@@ -156,17 +190,16 @@ table.dt th{background:#f9fafb;font-weight:700;width:38%}
     </nav>
     <div class="p-4 border-t border-gray-200">
       <div class="bg-teal-50 border border-teal-200 rounded-xl p-3 text-[11px] text-teal-800 leading-relaxed">
-        <i class="ph-fill ph-shield-check"></i> <b>Offline &amp; private.</b> Everything stays on this device. Nothing is sent to any server.
+        <i class="ph-fill ph-shield-check"></i> <b>Community cloud repository.</b> Sign in with Google. Reports are stored with community access controls and version history.
       </div>
       <button onclick="app.exportAll()" class="w-full mt-3 py-2.5 rounded-lg bg-gray-900 text-white text-xs font-bold flex items-center justify-center gap-2"><i class="ph-fill ph-archive"></i> Back up all records</button>
-      <label class="w-full mt-2 py-2.5 rounded-lg bg-white border border-gray-300 text-gray-700 text-xs font-bold flex items-center justify-center gap-2 cursor-pointer"><i class="ph-fill ph-upload-simple"></i> Restore from file
-        <input type="file" accept=".json" class="hidden" onchange="app.importAll(event)">
-      </label>
+      
     </div>
   </aside>
 
   <!-- ============ STAGE ============ -->
   <div class="stage">
+    <div id="auth-status"><span id="auth-user-label">Not signed in</span><button onclick="app.signOut()">Sign out</button></div>
 
     <header class="topbar">
       <div>
@@ -187,10 +220,9 @@ table.dt th{background:#f9fafb;font-weight:700;width:38%}
         <div class="flex flex-wrap justify-between items-end gap-3 mb-4">
           <div>
             <h2 class="text-xl font-extrabold">My Records</h2>
-            <p class="text-xs text-gray-500">Saved on this device only.</p>
+            <p class="text-xs text-gray-500">Your community records · cloud-synced with version history.</p>
           </div>
           <div class="flex gap-2">
-            <button onclick="app.loadSamples()" class="bg-white border border-gray-200 px-3 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5"><i class="ph-bold ph-sparkle"></i> Examples</button>
             <button onclick="app.newRecord()" class="bg-teal-600 text-white px-3.5 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5"><i class="ph-bold ph-plus"></i> New Record</button>
           </div>
         </div>
@@ -351,6 +383,9 @@ table.dt th{background:#f9fafb;font-weight:700;width:38%}
   </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="./supabase-config.js"></script>
+<script src="./cloud-auth.js"></script>
 <script>
 /* ============================================================
    INDICATOR DEFINITIONS — 24 community-applicable themes
