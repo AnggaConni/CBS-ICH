@@ -145,6 +145,10 @@ table.dt th{background:#f9fafb;font-weight:700;width:38%}
 <div id="auth-overlay" role="dialog" aria-modal="true" aria-labelledby="auth-title">
  <div class="auth-card">
   <div class="flex items-center gap-3 mb-5"><div class="w-11 h-11 rounded-xl bg-teal-700 text-white grid place-items-center text-xl">✳</div><div><div class="font-extrabold text-gray-900">Community Heritage Recorder</div><div class="text-[10px] text-gray-500 tracking-widest uppercase">Indonesia ICH repository</div></div></div>
+  <div id="legacy-local-notice" class="hidden rounded-xl border border-amber-200 bg-amber-50 p-3 mb-5">
+   <p class="text-xs leading-relaxed text-amber-900">We found older offline records saved in this browser. They have not been uploaded to the cloud. Download a backup before migrating them.</p>
+   <button onclick="app.exportLegacyLocal()" class="mt-2 text-xs font-bold text-amber-900 underline">Download old offline records (JSON)</button>
+  </div>
   <section id="auth-signin">
    <p class="text-[11px] font-extrabold tracking-widest uppercase text-teal-700">Community access</p>
    <h2 id="auth-title" class="text-2xl font-extrabold mt-2">Sign in to contribute</h2>
