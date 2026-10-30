@@ -1,8 +1,18 @@
 <!DOCTYPE html>
-<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ASEAN Regional Heritage Repository | CBS-ICH</title><script src="https://cdn.tailwindcss.com"></script><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="./supabase-config.js"></script><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"><style>body{font-family:Inter,system-ui,sans-serif;background:#f5f7f5;color:#172522}.card{background:#fff;border:1px solid #e3eae5;border-radius:16px;padding:20px}.muted{color:#74817a}.metric{font-size:30px;font-weight:800;letter-spacing:-.04em}.report{padding:15px 0;border-bottom:1px solid #edf1ed}.report:last-child{border:0}.tag{font-size:10px;background:#eef6f0;color:#27705a;border-radius:99px;padding:4px 8px;font-weight:700}</style></head>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ASEAN Regional Heritage Repository | CBS-ICH</title><script src="https://cdn.tailwindcss.com"></script><link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/><script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="./supabase-config.js"></script><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"><style>body{font-family:Inter,system-ui,sans-serif;background:#f5f7f5;color:#172522}.card{background:#fff;border:1px solid #e3eae5;border-radius:16px;padding:20px}.muted{color:#74817a}.metric{font-size:30px;font-weight:800;letter-spacing:-.04em}.report{padding:15px 0;border-bottom:1px solid #edf1ed}.report:last-child{border:0}.tag{font-size:10px;background:#eef6f0;color:#27705a;border-radius:99px;padding:4px 8px;font-weight:700}#asean-map{height:480px;width:100%;border-radius:12px;z-index:1}.map-legend{font-size:11px;color:#52615a;display:flex;gap:16px;flex-wrap:wrap}.legend-dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px}</style></head>
 <body><header class="bg-white border-b border-gray-200"><div class="max-w-6xl mx-auto px-5 py-4 flex items-center justify-between"><a href="./" class="font-extrabold flex items-center gap-2"><span class="bg-teal-700 text-white rounded-xl w-9 h-9 grid place-items-center">✳</span>Community Heritage Recorder</a><nav class="flex gap-5 text-sm font-semibold text-gray-600"><a href="./">Home</a><a href="input.html">Community input</a></nav></div></header>
 <main class="max-w-6xl mx-auto px-5 py-10"><div class="flex flex-wrap justify-between items-end gap-4"><div><p class="text-xs uppercase tracking-widest font-bold text-teal-700">ASEAN ICH repository</p><h1 class="text-3xl font-extrabold mt-2">ASEAN regional heritage repository</h1><p class="muted mt-2 max-w-2xl text-sm leading-6">Explore UNESCO-inscribed living heritage across ASEAN, alongside community-submitted records that have been reviewed and approved for publication.</p></div><a href="input.html" class="bg-teal-700 text-white rounded-xl px-4 py-3 text-sm font-bold">Contribute a report ↗</a></div>
 <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-8"><div class="card"><p class="muted text-xs">Verified communities represented</p><strong id="metric-communities" class="metric block mt-2">—</strong></div><div class="card"><p class="muted text-xs">Published public reports</p><strong id="metric-reports" class="metric block mt-2">—</strong></div><div class="card"><p class="muted text-xs">Provinces covered</p><strong id="metric-provinces" class="metric block mt-2">—</strong></div></div>
+
+<section class="card mt-5">
+ <div class="flex flex-wrap justify-between items-end gap-3">
+  <div><p class="text-xs uppercase tracking-widest font-bold text-teal-700">Geospatial overview</p><h2 class="font-extrabold text-xl mt-1">ASEAN Heritage Map</h2><p class="muted text-xs mt-1">Country-level reference markers and exact coordinates from published community reports.</p></div>
+  <span id="map-summary" class="tag">Loading map data…</span>
+ </div>
+ <div class="map-legend mt-3"><span><i class="legend-dot" style="background:#0d9488"></i>UNESCO reference count (approximate country centroid)</span><span><i class="legend-dot" style="background:#2563eb"></i>Published community report (record coordinates)</span></div>
+ <div id="asean-map" class="mt-3"></div>
+ <p class="muted text-[11px] mt-3">Basemap © OpenStreetMap contributors. UNESCO reference markers indicate country-level coverage only; they do not represent the precise place where a tradition is practised. Community markers use coordinates submitted with published records.</p>
+</section>
 <div class="grid lg:grid-cols-5 gap-4 mt-5"><section class="card lg:col-span-3"><div class="flex items-center justify-between gap-3"><div><h2 class="font-bold text-lg">Published community reports</h2><p class="muted text-xs mt-1">Only public records from verified communities are shown.</p></div><span id="last-updated" class="muted text-[10px]"></span></div><div id="reports-list" class="mt-4"><p class="muted text-sm">Loading public reports…</p></div></section><section class="card lg:col-span-2"><h2 class="font-bold text-lg">Geographic coverage</h2><p class="muted text-xs mt-1">Published records by province</p><div id="province-list" class="mt-5"><p class="muted text-sm">Loading…</p></div></section></div>
 
 <section class="card mt-5" id="baseline-section">
@@ -26,7 +36,7 @@
  try{
   if(!window.CBS_ICH_SUPABASE||!window.supabase)throw new Error('Repository configuration unavailable.');
   const client=window.supabase.createClient(window.CBS_ICH_SUPABASE.url,window.CBS_ICH_SUPABASE.publishableKey);
-  const {data,error}=await client.from('public_ich_dashboard').select('id,ich_name,category,province,regency,updated_at,community_name').order('updated_at',{ascending:false});
+  const {data,error}=await client.from('public_ich_dashboard').select('id,ich_name,category,province,regency,latitude,longitude,updated_at,community_name').order('updated_at',{ascending:false});
   if(error)throw error;
   const rows=data||[],communities=new Set(rows.map(row=>row.community_name).filter(Boolean)),byProvince={};
   rows.forEach(row=>{const name=row.province||'Not specified';byProvince[name]=(byProvince[name]||0)+1;});
@@ -38,6 +48,31 @@
   else list.innerHTML=rows.map(row=>'<article class="report"><div class="flex items-start justify-between gap-3"><div class="min-w-0"><h3 class="font-bold">'+escapeHtml(row.ich_name)+'</h3><p class="muted text-xs mt-1">'+escapeHtml(row.community_name||'Community')+' · '+escapeHtml([row.regency,row.province].filter(Boolean).join(', '))+'</p><p class="text-xs text-gray-500 mt-2">'+escapeHtml(row.category||'Intangible cultural heritage')+'</p></div><span class="tag shrink-0">Published</span></div></article>').join('');
   const sorted=Object.entries(byProvince).sort((a,b)=>b[1]-a[1]);
   provinceList.innerHTML=sorted.length?sorted.map(([name,count])=>'<div class="flex items-center justify-between gap-3 mb-3"><span class="text-sm">'+escapeHtml(name)+'</span><span class="text-xs font-bold text-teal-700">'+count+'</span></div>').join(''):'<p class="muted text-sm">No geographic data yet.</p>';
+  const map=L.map('asean-map',{scrollWheelZoom:false}).setView([7.5,115],4);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors'}).addTo(map);
+  const centers={
+   'Brunei Darussalam':[4.5353,114.7277],'Cambodia':[12.5657,104.9910],'Indonesia':[-2.5,118],
+   'Lao People\'s Democratic Republic':[19.8563,102.4955],'Malaysia':[4.2105,101.9758],
+   'Myanmar':[21.9162,95.9560],'Philippines':[12.8797,121.7740],'Singapore':[1.3521,103.8198],
+   'Thailand':[15.8700,100.9925],'Timor-Leste':[-8.8742,125.7275],'Viet Nam':[14.0583,108.2772]
+  };
+  const counts={};baselineRows.forEach(row=>(row.country_names||[]).forEach(country=>{if(centers[country])counts[country]=(counts[country]||0)+1;}));
+  Object.entries(centers).forEach(([country,coords])=>{
+   const count=counts[country]||0;
+   const marker=L.circleMarker(coords,{radius:Math.min(17,7+count*.45),color:'#0f766e',weight:2,fillColor:'#14b8a6',fillOpacity:.78}).addTo(map);
+   const names=baselineRows.filter(row=>(row.country_names||[]).includes(country)).map(row=>row.element_name);
+   marker.bindPopup('<b>'+escapeHtml(country)+'</b><br><b>'+count+'</b> UNESCO reference associations'+(names.length?'<ul style="padding-left:17px;margin:6px 0;max-height:150px;overflow:auto">'+names.slice(0,12).map(name=>'<li>'+escapeHtml(name)+'</li>').join('')+'</ul>':''));
+  });
+  let communityPoints=0;
+  rows.forEach(row=>{
+   const lat=Number(row.latitude),lng=Number(row.longitude);
+   if(!Number.isFinite(lat)||!Number.isFinite(lng)||(!lat&&!lng))return;
+   communityPoints++;
+   L.circleMarker([lat,lng],{radius:7,color:'#1d4ed8',weight:2,fillColor:'#3b82f6',fillOpacity:.9}).addTo(map)
+    .bindPopup('<b>'+escapeHtml(row.ich_name)+'</b><br>'+escapeHtml(row.community_name||'Community')+'<br>'+escapeHtml([row.regency,row.province].filter(Boolean).join(', ')));
+  });
+  document.getElementById('map-summary').textContent=Object.keys(counts).length+' countries · '+communityPoints+' geolocated community reports';
+  setTimeout(()=>map.invalidateSize(),150);
   const {data: baseline,error: baselineError}=await client.from('regional_ich_references').select('source_key,element_name,country_names,inscription_year,unesco_status,unesco_list,source_name,source_url,verification_status').order('inscription_year',{ascending:false}).order('element_name');
   if(baselineError)throw baselineError;
   const baselineRows=baseline||[];
