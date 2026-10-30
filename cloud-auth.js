@@ -4,10 +4,13 @@
 document.addEventListener('DOMContentLoaded', () => {
   if (typeof app === 'undefined') return;
   Object.assign(app, {
-    sb: null, session: null, community: null, authBusy: false,
+    sb: null, session: null, community: null, authBusy: false, legacyLocalRecords: [],
 
     async init() {
       this.data = [];
+      try { this.legacyLocalRecords = JSON.parse(localStorage.getItem('cbi_records_v2') || '[]') || []; } catch (_) { this.legacyLocalRecords = []; }
+      const legacyNotice = document.getElementById('legacy-local-notice');
+      if (legacyNotice && this.legacyLocalRecords.length) legacyNotice.classList.remove('hidden');
       this.buildForm();
       this.renderList();
       this.go('list');
@@ -60,6 +63,29 @@ document.addEventListener('DOMContentLoaded', () => {
         el.classList.remove('hidden');
       }
     },
+    exportLegacyLocal() {
+      if (!this.legacyLocalRecords.length) {
+        this.toast('No previous offline records found on this browser.', 'err');
+        return;
+      }
+      const payload = {
+        format: 'community-based-inventory',
+        version: 2,
+        exported: new Date().toISOString(),
+        count: this.legacyLocalRecords.length,
+        records: this.legacyLocalRecords
+      };
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'CBS-ICH_legacy_offline_backup.json';
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    },
+
     async googleSignIn() {
       const el = document.getElementById('auth-error');
       if (el) el.classList.add('hidden');
