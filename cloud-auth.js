@@ -241,6 +241,36 @@ document.addEventListener('DOMContentLoaded', () => {
       this.renderList();
     },
 
+    validateRecordIntegrity(record) {
+      const errors = [];
+      if (!record || typeof record !== 'object') return ['Report payload is not an object.'];
+      if (typeof INDICATORS === 'undefined' || !Array.isArray(INDICATORS)) {
+        return ['Indicator definitions are unavailable; report was not saved.'];
+      }
+      const indicatorKeys = Object.keys(record.indicators || {}).map(String).sort((a,b) => Number(a)-Number(b));
+      const expectedKeys = INDICATORS.map(item => String(item.n)).sort((a,b) => Number(a)-Number(b));
+      const missing = expectedKeys.filter(key => !indicatorKeys.includes(key));
+      const unexpected = indicatorKeys.filter(key => !expectedKeys.includes(key));
+      if (missing.length) errors.push('Missing indicator data: ' + missing.join(', '));
+      if (unexpected.length) errors.push('Unexpected indicator data: ' + unexpected.join(', '));
+      INDICATORS.forEach(item => {
+        const value = record.indicators?.[item.n];
+        if (!value || typeof value !== 'object') return;
+        if (!Array.isArray(value.options)) errors.push('Indicator ' + item.n + ': options must be an array.');
+        if (!Array.isArray(value.checklist)) errors.push('Indicator ' + item.n + ': checklist must be an array.');
+        if (typeof value.note !== 'string') errors.push('Indicator ' + item.n + ': note is missing or invalid.');
+        if (!(value.score === null || typeof value.score === 'number')) errors.push('Indicator ' + item.n + ': score is invalid.');
+      });
+      try {
+        const roundTrip = JSON.parse(JSON.stringify(record));
+        if (Object.keys(roundTrip).length !== Object.keys(record).length) errors.push('Payload fields changed during JSON serialization.');
+        if (JSON.stringify(roundTrip.indicators) !== JSON.stringify(record.indicators)) errors.push('Indicator answers changed during JSON serialization.');
+      } catch (_) {
+        errors.push('Report contains data that cannot be serialized to JSON.');
+      }
+      return errors;
+    },
+
     async save(event) {
       event.preventDefault();
       if (!this.session || !this.community) {
@@ -248,6 +278,12 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
       }
       const record = this.collect();
+      const integrityErrors = this.validateRecordIntegrity(record);
+      if (integrityErrors.length) {
+        console.error('CBS-ICH data integrity validation failed:', integrityErrors);
+        this.toast('Report not saved: ' + integrityErrors[0], 'err');
+        return;
+      }
       if (!record.name) {
         this.toast('Please give the heritage a name', 'err');
         this.goStep(0);
