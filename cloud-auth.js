@@ -133,16 +133,27 @@ document.addEventListener('DOMContentLoaded', () => {
       button.disabled = true;
       button.textContent = 'Creating workspace…';
       try {
-        const { data: community, error } = await this.sb.from('communities')
-          .insert({
-            name,
-            province: province || null,
-            regency: regency || null,
-            created_by: this.session.user.id
-          })
+        // Reuse an account-owned workspace if a previous registration was interrupted.
+        const { data: existingCommunity, error: lookupError } = await this.sb.from('communities')
           .select('id,name,province,regency,verification_status')
-          .single();
-        if (error) throw error;
+          .eq('created_by', this.session.user.id)
+          .maybeSingle();
+        if (lookupError) throw lookupError;
+
+        let community = existingCommunity;
+        if (!community) {
+          const { data, error } = await this.sb.from('communities')
+            .insert({
+              name,
+              province: province || null,
+              regency: regency || null,
+              created_by: this.session.user.id
+            })
+            .select('id,name,province,regency,verification_status')
+            .single();
+          if (error) throw error;
+          community = data;
+        }
 
         const { error: memberError } = await this.sb.from('community_members')
           .insert({
@@ -150,7 +161,7 @@ document.addEventListener('DOMContentLoaded', () => {
             user_id: this.session.user.id,
             role: 'owner'
           });
-        if (memberError) throw memberError;
+        if (memberError && !String(memberError.message).toLowerCase().includes('duplicate')) throw memberError;
 
         this.community = community;
         await this.loadRemoteRecords();
